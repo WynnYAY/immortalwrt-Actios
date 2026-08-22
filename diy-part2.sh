@@ -20,6 +20,26 @@ sed -i 's/luci-theme-bootstrap/luci-theme-argon/g' feeds/luci/collections/luci/M
 #  grep -q 'CONFIG_IP_MULTIPLE_TABLES' "$cfg" || echo 'CONFIG_IP_MULTIPLE_TABLES=y' >> "$cfg"
 #done
 
+# VoLTE IPsec support (SimAdmin): 启用 XFRM/ESP 内核支持，用于 IMS 注册的 IPsec 保护
+# 与上面的 IPv4 策略路由同理，直接写入内核 platform config，绕过 make defconfig 的依赖检查
+for cfg in target/linux/msm89xx/config-*; do
+  [ -f "$cfg" ] || continue
+  grep -q 'CONFIG_XFRM=y' "$cfg" || echo 'CONFIG_XFRM=y' >> "$cfg"
+  grep -q 'CONFIG_XFRM_USER=y' "$cfg" || echo 'CONFIG_XFRM_USER=y' >> "$cfg"
+  grep -q 'CONFIG_XFRM_IPCOMP=y' "$cfg" || echo 'CONFIG_XFRM_IPCOMP=y' >> "$cfg"
+  grep -q 'CONFIG_XFRM_AH=y' "$cfg" || echo 'CONFIG_XFRM_AH=y' >> "$cfg"
+  grep -q 'CONFIG_XFRM_ESP=y' "$cfg" || echo 'CONFIG_XFRM_ESP=y' >> "$cfg"
+  grep -q 'CONFIG_INET_AH=y' "$cfg" || echo 'CONFIG_INET_AH=y' >> "$cfg"
+  grep -q 'CONFIG_INET_ESP=y' "$cfg" || echo 'CONFIG_INET_ESP=y' >> "$cfg"
+  grep -q 'CONFIG_INET6_AH=y' "$cfg" || echo 'CONFIG_INET6_AH=y' >> "$cfg"
+  grep -q 'CONFIG_INET6_ESP=y' "$cfg" || echo 'CONFIG_INET6_ESP=y' >> "$cfg"
+  grep -q 'CONFIG_NET_KEY=y' "$cfg" || echo 'CONFIG_NET_KEY=y' >> "$cfg"
+  grep -q 'CONFIG_CRYPTO_NULL=y' "$cfg" || echo 'CONFIG_CRYPTO_NULL=y' >> "$cfg"
+  grep -q 'CONFIG_CRYPTO_MD5=y' "$cfg" || echo 'CONFIG_CRYPTO_MD5=y' >> "$cfg"
+  grep -q 'CONFIG_CRYPTO_AUTHENC=y' "$cfg" || echo 'CONFIG_CRYPTO_AUTHENC=y' >> "$cfg"
+  grep -q 'CONFIG_CRYPTO_CBC=y' "$cfg" || echo 'CONFIG_CRYPTO_CBC=y' >> "$cfg"
+done
+
 
 # 临时添加的插件
 # git clone https://github.com/lkiuyu/luci-app-cpu-perf package/luci-app-cpu-perf
