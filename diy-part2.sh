@@ -31,6 +31,7 @@ for cfg in target/linux/msm89xx/config-*; do
   grep -q 'CONFIG_XFRM_ESP=y' "$cfg" || echo 'CONFIG_XFRM_ESP=y' >> "$cfg"
   grep -q 'CONFIG_INET_AH=y' "$cfg" || echo 'CONFIG_INET_AH=y' >> "$cfg"
   grep -q 'CONFIG_INET_ESP=y' "$cfg" || echo 'CONFIG_INET_ESP=y' >> "$cfg"
+  grep -q 'CONFIG_INET_ESP_OFFLOAD' "$cfg" || echo '# CONFIG_INET_ESP_OFFLOAD is not set' >> "$cfg"
   grep -q 'CONFIG_INET6_AH=y' "$cfg" || echo 'CONFIG_INET6_AH=y' >> "$cfg"
   grep -q 'CONFIG_INET6_ESP=y' "$cfg" || echo 'CONFIG_INET6_ESP=y' >> "$cfg"
   grep -q 'CONFIG_NET_KEY=y' "$cfg" || echo 'CONFIG_NET_KEY=y' >> "$cfg"
