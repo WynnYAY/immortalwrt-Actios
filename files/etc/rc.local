@@ -5,4 +5,7 @@
 # cd /root/picoclaw && ./picoclaw-launcher -public > /root/picoclaw/picoclaw.log 2>&1 &
 # SimAdmin 这个是管理sim手机卡的程序，开源地址：https://github.com/3899/SimAdmin
 # cd /root/simadmin && ./simadmin > /root/simadmin/simadmin.log 2>&1 &
+# SimAdmin 自动启动（预装）
+/etc/init.d/simadmin enable 2>/dev/null
+/etc/init.d/simadmin start 2>/dev/null
 exit 0
