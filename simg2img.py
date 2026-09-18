@@ -27,6 +27,7 @@ def main():
             pos += 4
             outbuf[raw * blksz:(raw + chunksz) * blksz] = blk * chunksz
             fill += chunksz
+            raw += chunksz
         elif ctype == 0xCAC3:  # DONT_CARE
             dc += chunksz
         elif ctype == 0xCAC4:  # CRC32
