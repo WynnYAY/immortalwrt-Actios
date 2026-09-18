@@ -35,7 +35,7 @@ jobs:
           ls -la fw/
           dumpe2fs -h fw/system.raw.img 2>/dev/null | head -25 || true
           mkdir -p mnt rootfs
-          sudo mount -o loop,ro,noload fw/system.raw.img mnt || (sudo e2fsck -fy fw/system.raw.img && sudo mount -o loop,ro fw/system.raw.img mnt)
+          sudo mount -o loop,ro,noload fw/system.raw.img mnt || (sudo e2fsck -fy fw/system.raw.img || true && sudo mount -o loop,ro,noload fw/system.raw.img mnt)
           cp -a mnt/lib/modules rootfs/
           cp -a mnt/lib/firmware rootfs/
           sudo umount mnt
