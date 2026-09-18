@@ -18,6 +18,9 @@ jobs:
   extract:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout (for simg2img.py)
+        uses: actions/checkout@main
+
       - name: Download firmware zip
         run: |
           wget -q "$FW_ZIP_URL" -O fw.zip
