@@ -113,6 +113,8 @@ jobs:
       - name: Clone source code
         working-directory: /mnt
         run: |
+          sudo chmod 777 /mnt
+          df -hT $PWD
           git clone https://github.com/lkiuyu/immortalwrt -b master openwrt
           if [ -n "${{ steps.lock.outputs.locked_hash }}" ]; then
             cd openwrt && git checkout ${{ steps.lock.outputs.locked_hash }}
