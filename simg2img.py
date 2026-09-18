@@ -7,7 +7,7 @@ def main():
     inp, out = sys.argv[1], sys.argv[2]
     data = open(inp, 'rb').read()
     magic, major, minor, fhs, chs, blksz, total_blks, total_chunks, csum = \
-        struct.unpack_from('<IHHIIIIII', data, 0)
+        struct.unpack_from('<IHHHHIIII', data, 0)
     assert magic == 0xED26FF3A, 'not a sparse image: 0x%x' % magic
     print('sparse v%d.%d blk=%d blks=%d chunks=%d' %
           (major, minor, blksz, total_blks, total_chunks))
