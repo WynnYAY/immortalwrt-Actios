@@ -27,18 +27,21 @@ jobs:
           unzip -o fw.zip system.img -d fw
           ls -la fw/
 
-      - name: Unpack squashfs rootfs
+      - name: Extract ext4 rootfs (debugfs)
         run: |
-          sudo apt-get -y install squashfs-tools kmod
-          # system.img is an Android sparse image (magic 0xed26ff3a) -> convert to raw first
+          sudo apt-get -y install e2fsprogs kmod
+          # system.img is Android sparse (0xed26ff3a) -> raw ext4 (NOT squashfs!)
           python3 simg2img.py fw/system.img fw/system.raw.img
           ls -la fw/
-          unsquashfs -d rootfs fw/system.raw.img
-          ls rootfs/lib/modules/
+          dumpe2fs -h fw/system.raw.img 2>/dev/null | head -25 || true
+          mkdir -p rootfs
+          sudo debugfs -R "rdump /lib/modules rootfs" fw/system.raw.img 2>/dev/null
+          sudo debugfs -R "rdump /lib/firmware rootfs" fw/system.raw.img 2>/dev/null
+          find rootfs -maxdepth 3 -type d | head -20
 
       - name: Inspect key modules
         run: |
-          KDIR=rootfs/lib/modules/6.12.85
+          KDIR=rootfs/modules/6.12.85
           echo "== vermagic =="
           head -c 200 $KDIR/modules.builtin.modinfo || true
           echo
@@ -47,15 +50,15 @@ jobs:
           echo "== wwan related ko =="
           ls $KDIR/ | grep -iE 'bam|wwan|rpmsg|qcom' || true
           echo "== firmware list =="
-          ls rootfs/lib/firmware/ > firmware-list-612.txt
-          md5sum rootfs/lib/firmware/* | sort > firmware-md5-612.txt
+          ls rootfs/firmware/ > firmware-list-612.txt
+          find rootfs/firmware -type f -exec md5sum {} \; | sort > firmware-md5-612.txt
           head -40 firmware-md5-612.txt
 
       - name: Pack modules tree
         run: |
-          tar -czf modules-6.12.85.tar.gz -C rootfs/lib/modules 6.12.85
-          cp rootfs/lib/modules/6.12.85/qcom_bam_dmux.ko qcom_bam_dmux_612_stock.ko
-          cp rootfs/lib/modules/6.12.85/rpmsg_wwan_ctrl.ko rpmsg_wwan_ctrl_612_stock.ko 2>/dev/null || true
+          tar -czf modules-6.12.85.tar.gz -C rootfs/modules 6.12.85
+          cp rootfs/modules/6.12.85/qcom_bam_dmux.ko qcom_bam_dmux_612_stock.ko
+          cp rootfs/modules/6.12.85/rpmsg_wwan_ctrl.ko rpmsg_wwan_ctrl_612_stock.ko 2>/dev/null || true
           ls -la modules-6.12.85.tar.gz
 
       - name: Upload extracted kit
