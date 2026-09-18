@@ -1,0 +1,166 @@
+name: 🔧 extract-612-kit
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_headers:
+        description: '是否构建完整 6.12.85 内核构建树（约 1-2h，false 时只做快速提取）'
+        required: false
+        default: 'true'
+        type: boolean
+
+env:
+  TZ: Asia/Shanghai
+  FW_ZIP_URL: https://github.com/yangwtang1210/immortalwrt-Actios/releases/download/2026.08.25-0110-jz02v10/OpenWrt_jz02v10_202608250109_.zip
+
+jobs:
+  # ---------- Job 1: 快速提取 6.12.85 rootfs 的 modules 目录 ----------
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download firmware zip
+        run: |
+          wget -q "$FW_ZIP_URL" -O fw.zip
+          unzip -o fw.zip system.img -d fw
+          ls -la fw/
+
+      - name: Unpack squashfs rootfs
+        run: |
+          sudo apt-get -y install squashfs-tools kmod
+          unsquashfs -d rootfs fw/system.img
+          ls rootfs/lib/modules/
+
+      - name: Inspect key modules
+        run: |
+          KDIR=rootfs/lib/modules/6.12.85
+          echo "== vermagic =="
+          head -c 200 $KDIR/modules.builtin.modinfo || true
+          echo
+          echo "== qcom_bam_dmux =="
+          modinfo $KDIR/qcom_bam_dmux.ko || true
+          echo "== wwan related ko =="
+          ls $KDIR/ | grep -iE 'bam|wwan|rpmsg|qcom' || true
+          echo "== firmware list =="
+          ls rootfs/lib/firmware/ > firmware-list-612.txt
+          md5sum rootfs/lib/firmware/* | sort > firmware-md5-612.txt
+          head -40 firmware-md5-612.txt
+
+      - name: Pack modules tree
+        run: |
+          tar -czf modules-6.12.85.tar.gz -C rootfs/lib/modules 6.12.85
+          cp rootfs/lib/modules/6.12.85/qcom_bam_dmux.ko qcom_bam_dmux_612_stock.ko
+          cp rootfs/lib/modules/6.12.85/rpmsg_wwan_ctrl.ko rpmsg_wwan_ctrl_612_stock.ko 2>/dev/null || true
+          ls -la modules-6.12.85.tar.gz
+
+      - name: Upload extracted kit
+        uses: actions/upload-artifact@main
+        with:
+          name: extract-612-kit
+          path: |
+            modules-6.12.85.tar.gz
+            qcom_bam_dmux_612_stock.ko
+            rpmsg_wwan_ctrl_612_stock.ko
+            firmware-list-612.txt
+            firmware-md5-612.txt
+          if-no-files-found: error
+
+  # ---------- Job 2: 官方 kbuild 构建 6.12.85 构建树 ----------
+  headers:
+    if: ${{ inputs.build_headers }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: false
+          dotnet: false
+          haskell: false
+          large-packages: false
+          docker-images: false
+          swap-storage: true
+
+      - name: Initialization environment
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo -E apt-get -y update
+          sudo -E apt-get -y install $(curl -fsSL https://raw.githubusercontent.com/xuxin1955/depend_ubuntu2204_openwrt/refs/heads/main/depend_ubuntu2204_openwrt)
+
+      - name: Ensure Python build tools
+        run: |
+          python3 -m pip cache purge || true
+          python3 -m pip install --upgrade --force-reinstall pip
+          python3 -m pip install --upgrade --force-reinstall 'setuptools>=65' wheel
+          python3 -m pip install --upgrade 'setuptools-scm>=8,<10'
+          python3 -m pip install --upgrade cython packaging tomli Unidecode pyelftools
+
+      - name: Read locked upstream hash
+        id: lock
+        run: |
+          LOCK_FILE="upstream_lock.txt"
+          if [ -f "$LOCK_FILE" ]; then
+            echo "locked_hash=$(cat $LOCK_FILE)" >> $GITHUB_OUTPUT
+          else
+            echo "locked_hash=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Clone source code
+        working-directory: /mnt
+        run: |
+          git clone https://github.com/lkiuyu/immortalwrt -b master openwrt
+          if [ -n "${{ steps.lock.outputs.locked_hash }}" ]; then
+            cd openwrt && git checkout ${{ steps.lock.outputs.locked_hash }}
+          fi
+          ln -sf /mnt/openwrt $GITHUB_WORKSPACE/openwrt
+
+      - name: Feeds and config
+        run: |
+          [ -e feeds.conf.default ] && mv feeds.conf.default openwrt/feeds.conf.default
+          cd openwrt
+          ./scripts/feeds update -a
+          rm -rf feeds/smpackage/{base-files,dnsmasq,firewall*,fullconenat,libnftnl,nftables,ppp,opkg,ucl,upx,vsftpd*,miniupnpd-iptables,wireless-regdb}
+          ./scripts/feeds install -a -f
+          [ -e $GITHUB_WORKSPACE/config/jz02v10.config ] && cp $GITHUB_WORKSPACE/config/jz02v10.config .config
+          make defconfig
+
+      - name: Download sources
+        run: |
+          cd openwrt
+          make download -j4
+          find dl -size -1024c -exec rm -f {} \; || true
+
+      - name: Build toolchain + kernel
+        run: |
+          cd openwrt
+          make tools/install -j$(nproc) || make tools/install -j1 V=s
+          make toolchain/install -j$(nproc) || make toolchain/install -j1 V=s
+          make target/linux/compile -j$(nproc) || make target/linux/compile -j1 V=s
+
+      - name: Pack kernel build tree
+        run: |
+          KBD=$(echo /mnt/openwrt/build_dir/target-*/linux-*/linux-*)
+          echo "kernel build dir: $KBD"
+          # 外部模块 kbuild 所需全集：include/ scripts/ .config Module.symvers 等
+          tar -cf /tmp/kernel-build-tree.tar \
+            --exclude='*.o' --exclude='*.cmd' --exclude='*.a' \
+            -C "$(dirname $KBD)" "$(basename $KBD)"
+          gzip -1 /tmp/kernel-build-tree.tar
+          ls -la /tmp/kernel-build-tree.tar.gz
+          # 顺带导出内核最终 .config 与 vermagic 供核对
+          cp $KBD/.config kernel-config-6.12.85
+          cat $KBD/include/generated/utsrelease.h || true
+
+      - name: Upload kernel build tree
+        uses: actions/upload-artifact@main
+        with:
+          name: kernel-build-tree-6.12.85
+          path: |
+            /tmp/kernel-build-tree.tar.gz
+            kernel-config-6.12.85
+          if-no-files-found: error
