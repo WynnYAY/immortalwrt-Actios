@@ -17,19 +17,19 @@ def main():
     for _ in range(total_chunks):
         ctype, _rsv, chunksz, totalsz = struct.unpack_from('<HHII', data, pos)
         pos += chs
-        if ctype == 1:  # RAW
+        if ctype == 0xCAC1:  # RAW
             outbuf[raw * blksz:(raw + chunksz) * blksz] = \
                 data[pos:pos + chunksz * blksz]
             pos += chunksz * blksz
             raw += chunksz
-        elif ctype == 2:  # FILL
+        elif ctype == 0xCAC2:  # FILL
             blk = struct.unpack_from('<I', data, pos)[0].to_bytes(4, 'little') * (blksz // 4)
             pos += 4
             outbuf[raw * blksz:(raw + chunksz) * blksz] = blk * chunksz
             fill += chunksz
-        elif ctype == 3:  # DONT_CARE
+        elif ctype == 0xCAC3:  # DONT_CARE
             dc += chunksz
-        elif ctype == 4:  # CRC32
+        elif ctype == 0xCAC4:  # CRC32
             pos += 4
         else:
             raise SystemExit('unknown chunk type %d' % ctype)
