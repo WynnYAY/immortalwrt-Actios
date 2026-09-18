@@ -34,9 +34,11 @@ jobs:
           python3 simg2img.py fw/system.img fw/system.raw.img
           ls -la fw/
           dumpe2fs -h fw/system.raw.img 2>/dev/null | head -25 || true
-          mkdir -p rootfs
-          sudo debugfs -R "rdump /lib/modules rootfs" fw/system.raw.img 2>/dev/null
-          sudo debugfs -R "rdump /lib/firmware rootfs" fw/system.raw.img 2>/dev/null
+          mkdir -p mnt rootfs
+          sudo mount -o loop,ro,noload fw/system.raw.img mnt || (sudo e2fsck -fy fw/system.raw.img && sudo mount -o loop,ro fw/system.raw.img mnt)
+          cp -a mnt/lib/modules rootfs/
+          cp -a mnt/lib/firmware rootfs/
+          sudo umount mnt
           find rootfs -maxdepth 3 -type d | head -20
 
       - name: Inspect key modules
