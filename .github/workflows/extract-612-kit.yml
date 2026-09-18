@@ -27,7 +27,10 @@ jobs:
       - name: Unpack squashfs rootfs
         run: |
           sudo apt-get -y install squashfs-tools kmod
-          unsquashfs -d rootfs fw/system.img
+          # system.img is an Android sparse image (magic 0xed26ff3a) -> convert to raw first
+          python3 simg2img.py fw/system.img fw/system.raw.img
+          ls -la fw/
+          unsquashfs -d rootfs fw/system.raw.img
           ls rootfs/lib/modules/
 
       - name: Inspect key modules
