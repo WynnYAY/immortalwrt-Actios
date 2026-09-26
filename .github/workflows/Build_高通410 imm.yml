@@ -158,6 +158,13 @@ jobs:
     - name:  files
       run: cp -r files openwrt/files
 
+    - name: Inject MPSS firmware for ufi001c/ufi001b (SIM fix)
+      if: github.event.inputs.profile == 'ufi001c' || github.event.inputs.profile == 'ufi001b'
+      run: |
+        mkdir -p openwrt/files/lib/firmware
+        cp -f firmware-ufi001c/* openwrt/files/lib/firmware/
+        echo "已注入 ufi001c 基带固件: $(ls openwrt/files/lib/firmware/ | wc -l) 个文件"
+
     - name: Load custom feeds
       run: |
         [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf.default
